@@ -5,7 +5,7 @@ from typing import Annotated, Literal, Optional
 import json
 app = FastAPI() # creating a FastAPI instance(object)
 
-class Patient(BaseModel):
+class Patient(BaseModel): #model to create a new patient
 
     id: Annotated[str, Field(..., description='ID of the patient', examples=['P001'])]
     name: Annotated[str, Field(..., description='Name of the patient')]
@@ -15,11 +15,14 @@ class Patient(BaseModel):
     height: Annotated[float, Field(..., gt=0, description='Height of the patient in mtrs')]
     weight: Annotated[float, Field(..., gt=0, description='Weight of the patient in kgs')]
 
+
+    
     @computed_field
     @property
     def bmi(self) -> float:
         bmi = round(self.weight/(self.height**2),2)
         return bmi
+        
     
     @computed_field
     @property
@@ -33,6 +36,17 @@ class Patient(BaseModel):
             return 'Normal'
         else:
             return 'Obese'
+
+
+class PatientUpdate(BaseModel):  #model to update patient info
+    name: Annotated[Optional[str], Field(default=None)]
+    city: Annotated[Optional[str], Field(default=None)]
+    age: Annotated[Optional[int], Field(default=None, gt=0)]
+    gender: Annotated[Optional[Literal['male', 'female']], Field(default=None)]
+    height: Annotated[Optional[float], Field(default=None, gt=0)]
+    weight: Annotated[Optional[float], Field(default=None, gt=0)]
+
+
 
 
 
@@ -109,4 +123,55 @@ def create_patient(patient: Patient):  #here data type of this fucn parameter is
     save_data(data)
 
     return JSONResponse(status_code=201, content={'message':'patient created successfully'})
+
+
+@app.put('/edit/{patient_id}')
+def update_patient(patient_id: str, patient_update: PatientUpdate):
+
+    data = load_data()
+
+    if patient_id not in data:
+        raise HTTPException(status_code=404, detail='Patient not found')
+    
+    existing_patient_info = data[patient_id]
+
+    updated_patient_info = patient_update.model_dump(exclude_unset=True) #converting pydantic object to dict and exclude_unset=True means only those fields will be included in the dict which are provided in the request body not cosider the default None values..
+
+    for key, value in updated_patient_info.items(): #.items() in Python returns both the key and value from a dictionary so you can loop through them.
+        existing_patient_info[key] = value
+
+    #existing_patient_info -> pydantic object(Patient) -> updated bmi + verdict ->pydantic object -> dict
+    #Patient model  have bmi and verdict computed field . So when we create a Patient pydantic object using existing_patient_info dict , the bmi and verdict fields will be automatically computed based on the updated height and weight values.
+    existing_patient_info['id'] = patient_id #adding id to the dict cuz it is required in Patient Pydantic model
+    patient_pydandic_obj = Patient(**existing_patient_info)
+    #-> pydantic object -> dict
+    existing_patient_info = patient_pydandic_obj.model_dump(exclude='id')
+
+    # add this dict to data
+    data[patient_id] = existing_patient_info
+
+    # save data
+    save_data(data)
+
+    return JSONResponse(status_code=200, content={'message':'patient updated'})
+
+
+@app.delete('/delete/{patient_id}')
+def delete_patient(patient_id: str):
+
+    # load data
+    data = load_data()
+
+    if patient_id not in data:
+        raise HTTPException(status_code=404, detail='Patient not found')
+    
+    del data[patient_id]
+
+    save_data(data)
+
+    return JSONResponse(status_code=200, content={'message':'patient deleted'})
+
+
+
+
 
