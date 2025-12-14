@@ -116,7 +116,7 @@ def create_patient(patient: Patient):  #here data type of this fucn parameter is
     if patient.id in data:
         raise HTTPException(status_code=400, detail='Patient already exists')
 
-    # new patient add to the database
+    # new patient add to the database(converting patient pydantic object to dict as our data is in dict format)
     data[patient.id] = patient.model_dump(exclude=['id'])
 
     # save into the json file
@@ -156,7 +156,7 @@ def update_patient(patient_id: str, patient_update: PatientUpdate):
     return JSONResponse(status_code=200, content={'message':'patient updated'})
 
 
-@app.delete('/delete/{patient_id}')
+@app.delete('/delete/{patient_id}') #patient_id is path parameter here
 def delete_patient(patient_id: str):
 
     # load data
